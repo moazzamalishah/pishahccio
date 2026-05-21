@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Packing Pattern</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    background: #f5f5f5;
+    font-family: system-ui, sans-serif;
+    padding: 24px;
+}
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.control-group label {
+    font-size: 12px;
+    color: #444;
+    font-weight: 600;
+    min-width: 42px;
+}
+.control-group input[type="range"] {
+    width: 100px;
+    accent-color: #222;
+}
+.control-group .value {
+    font-size: 12px;
+    color: #222;
+    min-width: 30px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.btn {
+    padding: 6px 20px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+}
+.btn:hover { background: #000; }
+.btn:active { transform: scale(0.97); }
+canvas {
+    background: #fff;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    display: block;
+}
+.count-label {
+    font-size: 12px;
+    color: #888;
+    min-width: 70px;
+    text-align: right;
+}
+</style>
+</head>
+<body>
+<div class="controls">
+    <div class="control-group">
+        <label>Small</label>
+        <input type="range" id="smallR" min="2" max="14" value="6" step="0.5">
+        <span class="value" id="smallVal">6</span>
+    </div>
+    <div class="control-group">
+        <label>Mid</label>
+        <input type="range" id="midR" min="8" max="24" value="16" step="0.5">
+        <span class="value" id="midVal">16</span>
+    </div>
+    <div class="control-group">
+        <label>Large</label>
+        <input type="range" id="largeR" min="16" max="40" value="30" step="0.5">
+        <span class="value" id="largeVal">30</span>
+    </div>
+    <div class="control-group">
+        <label>Random</label>
+        <input type="range" id="randomizer" min="0" max="100" value="40">
+        <span class="value" id="randomVal">40</span>
+    </div>
+    <div class="control-group">
+        <label>Fill</label>
+        <input type="range" id="fillPct" min="0" max="100" value="20">
+        <span class="value" id="fillVal">20</span>
+    </div>
+    <button class="btn" id="regenerate">Regenerate</button>
+    <span class="count-label" id="placedCount">0</span>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const S = 800, M = 40, LW = 1.5;
+canvas.width = canvas.height = S;
+const L = M, T = M, R = S - M, B = S - M, BOX = R - L;
+
+function distSq(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    return dx * dx + dy * dy;
+}
+
+function canPlace(x, y, r, circles) {
+    if (x - r < L || x + r > R || y - r < T || y + r > B) return false;
+    for (const c of circles) {
+        if (distSq(x, y, c.x, c.y) < (r + c.r) * (r + c.r) - 0.01) return false;
+    }
+    return true;
+}
+
+function dualTangent(c1, c2, r3) {
+    const d = Math.sqrt(distSq(c1.x, c1.y, c2.x, c2.y));
+    const a = c1.r + r3, b = c2.r + r3;
+    if (d > a + b || d < Math.abs(c1.r - c2.r)) return null;
+    const cosVal = Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d)));
+    const angle = Math.acos(cosVal);
+    const base = Math.atan2(c2.y - c1.y, c2.x - c1.x);
+    return [
+        { x: c1.x + a * Math.cos(base + angle), y: c1.y + a * Math.sin(base + angle) },
+        { x: c1.x + a * Math.cos(base - angle), y: c1.y + a * Math.sin(base - angle) },
+    ];
+}
+
+function pack(smallR, midR, largeR, randomPct) {
+    const circles = [];
+    const randFactor = randomPct / 100;
+
+    const seeds = [
+        [0.5, 0.5], [0.2, 0.2], [0.8, 0.2],
+        [0.8, 0.8], [0.2, 0.8], [0.5, 0.15],
+        [0.5, 0.85], [0.15, 0.5], [0.85, 0.5],
+    ];
+    for (const [px, py] of seeds) {
+        const r = smallR + Math.random() * (largeR - smallR);
+        if (canPlace(L + BOX * px, T + BOX * py, r, circles)) {
+            circles.push({ x: L + BOX * px, y: T + BOX * py, r });
+        }
+    }
+
+    function randRadius() {
+        const chaos = randFactor;
+        if (Math.random() < chaos) {
+            return smallR + Math.random() * (largeR - smallR + 4);
+        }
+        const t = Math.random();
+        if (t < 0.33) return smallR + Math.random() * (midR - smallR);
+        if (t < 0.66) return midR + Math.random() * (largeR - midR);
+        return largeR + Math.random() * Math.max(4, (largeR - midR) * 0.5);
+    }
+
+    const count = 1200;
+    const radii = [];
+    for (let i = 0; i < count; i++) radii.push(randRadius());
+    radii.sort((a, b) => b - a);
+
+    for (const r of radii) {
+        let placed = false;
+
+        if (circles.length >= 2) {
+            const n = circles.length;
+            for (let att = 0; att < Math.min(10, n); att++) {
+                if (placed) break;
+                const i = Math.floor(Math.random() * n);
+                let j = Math.floor(Math.random() * (n - 1));
+                if (j >= i) j++;
+                const pts = dualTangent(circles[i], circles[j], r);
+                if (!pts) continue;
+                for (const p of pts) {
+                    if (canPlace(p.x, p.y, r, circles)) {
+                        circles.push({ x: p.x, y: p.y, r });
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (placed) continue;
+
+        {
+            const n = circles.length;
+            const picks = Math.min(12, n);
+            for (let pi = 0; pi < picks && !placed; pi++) {
+                const p = circles[Math.floor(Math.random() * n)];
+                const step = Math.max(8, Math.floor(30 / (r / smallR + 1)));
+                for (let a = 0; a < 360 && !placed; a += step) {
+                    const rad = a * Math.PI / 180;
+                    const nx = p.x + (p.r + r) * Math.cos(rad);
+                    const ny = p.y + (p.r + r) * Math.sin(rad);
+                    if (canPlace(nx, ny, r, circles)) {
+                        circles.push({ x: nx, y: ny, r });
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        if (placed) continue;
+
+        const walls = [
+            [L + r, T + r + Math.random() * (BOX - 2 * r)],
+            [R - r, T + r + Math.random() * (BOX - 2 * r)],
+            [L + r + Math.random() * (BOX - 2 * r), T + r],
+            [L + r + Math.random() * (BOX - 2 * r), B - r],
+        ];
+        for (let wi = walls.length - 1; wi > 0; wi--) {
+            const wj = Math.floor(Math.random() * (wi + 1));
+            [walls[wi], walls[wj]] = [walls[wj], walls[wi]];
+        }
+        for (const [wx, wy] of walls) {
+            if (canPlace(wx, wy, r, circles)) {
+                circles.push({ x: wx, y: wy, r });
+                placed = true;
+                break;
+            }
+        }
+    }
+
+    return circles;
+}
+
+function draw(circles, fillPct) {
+    ctx.clearRect(0, 0, S, S);
+    ctx.lineWidth = LW;
+    ctx.strokeRect(L, T, BOX, BOX);
+    for (const c of circles) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        if (c.fill) {
+            ctx.fillStyle = '#111';
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#111';
+        ctx.stroke();
+    }
+}
+
+function generate() {
+    const s = parseFloat(document.getElementById('smallR').value);
+    const m = parseFloat(document.getElementById('midR').value);
+    const l = parseFloat(document.getElementById('largeR').value);
+    const r = parseFloat(document.getElementById('randomizer').value);
+    const f = parseFloat(document.getElementById('fillPct').value);
+    const adjS = Math.min(s, m - 0.5);
+    const adjM = Math.min(m, l - 0.5);
+    const circles = pack(adjS, adjM, l, r);
+    const fillCount = Math.round(circles.length * f / 100);
+    const idx = [...Array(circles.length).keys()];
+    for (let i = idx.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    for (let i = 0; i < fillCount; i++) circles[idx[i]].fill = true;
+    draw(circles, f);
+    document.getElementById('placedCount').textContent = `${circles.length}`;
+}
+
+['smallR', 'midR', 'largeR', 'randomizer', 'fillPct'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+        document.getElementById(id + 'Val').textContent = el.value;
+    });
+    el.addEventListener('change', generate);
+});
+document.getElementById('regenerate').addEventListener('click', generate);
+
+generate();
+</script>
+</body>
+</html>
