@@ -707,7 +707,7 @@ html, body {
       </div>
       <div class="sidebar-item" data-window="professors">
         <span class="icon">&#x1f393;</span>
-        <span>Professors</span>
+        <span>Credits</span>
       </div>
     </div>
     <div id="desktop">
@@ -900,25 +900,32 @@ const WINDOW_CONTENT = {
       <p>Welcome to my portfolio!</p>
       <p>I'm Moazzam, a Graphic Design student at Accademia Abadir. This page serves as a digital archive of the project exercises I've built along the way.</p>
       <p>From experimental visuals to interactive web layouts, each piece represents a step forward in my design journey (and a testament to my survival).</p>
-      <p>Head over to Exercises to see the work, or check out Professors to meet the brave mentors guiding my path.</p>
+      <p>Head over to Exercises to see the work, or check out Credits to meet the brave mentors guiding my path.</p>
       <p class="highlight">Important System Note: When I am not designing, I am hunting down pistachio. Pistachio gelato, pistachio croissants, pistachio pesto... mamma mia, if it has pistachio in it, I will eat it. It's not a preference; it's a lifestyle.</p>
     </div>
   `,
   exercises: null,
   professors: `
-    <div class="prof-list">
-      <div class="prof-item">
-        <div class="prof-icon">R</div>
-        <div class="prof-name">Rocco Modugno</div>
-      </div>
-      <div class="prof-item">
-        <div class="prof-icon">A</div>
-        <div class="prof-name">Andrea Maffei</div>
-      </div>
-      <div class="prof-item">
-        <div class="prof-icon">A</div>
-        <div class="prof-name">Alessia Scuderi</div>
-      </div>
+    <div class="prof-content">
+      <p>Website developed during the workshop <strong>"No brain, No Gain"</strong>,<br>
+      held by whateverDev (Andrea Maffei &amp; Rocco Lorenzo Modugno),<br>
+      18-22 May 2026, within the courses:</p>
+
+      <br>
+
+      <p><strong>Interaction Design 2</strong><br>
+      &bull; Prof. Alessia Scudieri</p>
+
+      <p><strong>Interaction Design 3</strong><br>
+      &bull; Prof. Andrea Leonardi<br>
+      &bull; Prof. Marcantonio D'Antoni</p>
+
+      <br>
+
+      <p><strong>ABADIR</strong><br>
+      Academy of Design and Visual Communication<br>
+      Sant'Agata li Battiati CT<br>
+      AA 2025-26</p>
     </div>
   `
 };
@@ -1109,7 +1116,7 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
   item.addEventListener('mouseenter', playBlip);
   item.addEventListener('click', () => {
     const type = item.dataset.window;
-    const titles = { about: 'About Me', exercises: 'Exercises', professors: 'Professors' };
+    const titles = { about: 'About Me', exercises: 'Exercises', professors: 'Credits' };
 
     if (winState.openWindows[type]?.state === 'open') {
       bringToFront(winState.openWindows[type].domElement);
