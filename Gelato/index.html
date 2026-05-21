@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gelato Chase!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; overflow: hidden; }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function drawGelato(ctx, x, y, scale) {
+  const s = scale || 1;
+  ctx.fillStyle = '#D2691E';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x - 20*s, y + 40*s);
+  ctx.lineTo(x + 20*s, y + 40*s);
+  ctx.lineTo(x, y + 10*s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  const swirlColors = ['#FFB6C1', '#FFC0CB', '#FF69B4'];
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = swirlColors[i];
+    ctx.beginPath();
+    ctx.ellipse(x, y - 10*s + i*12*s, 25*s - i*3*s, 15*s - i*2*s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#FF0000';
+  ctx.beginPath();
+  ctx.arc(x, y - 18*s, 6*s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawGelatoLegs(ctx, x, y, scale, phase) {
+  const s = scale || 1;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  const legOffset = Math.sin(phase) * 4;
+  ctx.beginPath();
+  ctx.moveTo(x - 8*s, y + 40*s);
+  ctx.lineTo(x - 12*s - legOffset, y + 55*s);
+  ctx.moveTo(x + 8*s, y + 40*s);
+  ctx.lineTo(x + 12*s + legOffset, y + 55*s);
+  ctx.stroke();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(x - 12*s - legOffset, y + 55*s, 3*s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + 12*s + legOffset, y + 55*s, 3*s, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMan(ctx, x, y, scale, expression, walkPhase) {
+  const s = scale || 1;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  ctx.fillStyle = '#4A90D9';
+  ctx.beginPath();
+  ctx.ellipse(x, y - 10*s, 30*s, 35*s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#FFDAB9';
+  ctx.beginPath();
+  ctx.arc(x, y - 48*s, 18*s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  const legSwing = Math.sin(walkPhase) * 8;
+  ctx.beginPath();
+  ctx.moveTo(x - 10*s, y + 26*s);
+  ctx.lineTo(x - 14*s - legSwing, y + 48*s);
+  ctx.moveTo(x + 10*s, y + 26*s);
+  ctx.lineTo(x + 14*s + legSwing, y + 48*s);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 28*s, y - 5*s);
+  ctx.lineTo(x - 40*s, y - 15*s);
+  ctx.moveTo(x + 28*s, y - 5*s);
+  ctx.lineTo(x + 40*s, y - 15*s);
+  ctx.stroke();
+  if (expression === 'happy') {
+    ctx.beginPath();
+    ctx.arc(x - 7*s, y - 52*s, 3*s, Math.PI, 0);
+    ctx.arc(x + 7*s, y - 52*s, 3*s, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y - 42*s, 6*s, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+  } else if (expression === 'shock') {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x - 7*s, y - 52*s, 5*s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 7*s, y - 52*s, 5*s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(x - 7*s, y - 52*s, 2*s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + 7*s, y - 52*s, 2*s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(x, y - 40*s, 5*s, 7*s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawZoomText(ctx, x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 6; i++) {
+    const angle = -0.3 + i * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(-40, -10 + i * 4);
+    ctx.lineTo(-40 - 20 * Math.cos(angle), -10 + i * 4 - 20 * Math.sin(angle));
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#FF4500';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 4;
+  ctx.font = 'bold 48px Impact, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeText('ZOOOOOM!', 0, 0);
+  ctx.fillText('ZOOOOOM!', 0, 0);
+  ctx.restore();
+}
+
+function drawPuff(ctx, x, y, size, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#FFB6C1';
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+const STATE_APPROACH = 0;
+const STATE_RUNNING = 1;
+const STATE_PAUSE = 2;
+
+let state = STATE_APPROACH;
+let stateTimer = 0;
+const PHASE1_DURATION = 180;
+const PHASE2_DURATION = 100;
+const PHASE3_DURATION = 30;
+
+let frame = 0;
+let manX, manY, gelatoX, gelatoY, zoomAlpha;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function easeIn(t) { return t * t; }
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, cy + 60);
+  ctx.lineTo(canvas.width, cy + 60);
+  ctx.stroke();
+
+  if (state === STATE_APPROACH) {
+    manX = lerp(-100, cx - 150, easeOut(stateTimer / PHASE1_DURATION));
+    manY = cy - 10;
+    gelatoX = cx + 180;
+    gelatoY = cy - 20;
+
+    drawMan(ctx, manX, manY, 1, 'happy', stateTimer * 0.08);
+    drawGelato(ctx, gelatoX, gelatoY, 1.5);
+
+    stateTimer++;
+    if (stateTimer >= PHASE1_DURATION) {
+      state = STATE_RUNNING;
+      stateTimer = 0;
+    }
+  } else if (state === STATE_RUNNING) {
+    const t = stateTimer / PHASE2_DURATION;
+    const gelatoRun = Math.max(0, (t - 0.25) / 0.75);
+    gelatoX = lerp(cx + 180, canvas.width + 100, easeIn(gelatoRun));
+    gelatoY = cy - 20;
+
+    const shockStart = 0.15;
+    const chaseStart = 0.35;
+    let manExpr = 'happy';
+    if (t > shockStart) manExpr = 'shock';
+    manX = lerp(cx - 150, canvas.width + 50, easeIn(Math.max(0, (t - chaseStart) / 0.65)));
+
+    if (t < shockStart) {
+      drawGelato(ctx, gelatoX, gelatoY, 1.5);
+    } else {
+      drawGelato(ctx, gelatoX, gelatoY, 1.3);
+      drawGelatoLegs(ctx, gelatoX, gelatoY, 1.3, stateTimer * 0.3);
+    }
+
+    drawMan(ctx, manX, manY, 1, manExpr, stateTimer * 0.12);
+
+    if (t > 0.25 && t < 0.6) {
+      const zoomScale = 1 + Math.sin(stateTimer * 0.2) * 0.1;
+      zoomAlpha = Math.min(1, (t - 0.25) * 8);
+      ctx.globalAlpha = zoomAlpha;
+      drawZoomText(ctx, gelatoX - 40, gelatoY - 50, zoomScale);
+      ctx.globalAlpha = 1;
+    }
+
+    stateTimer++;
+    if (stateTimer >= PHASE2_DURATION) {
+      state = STATE_PAUSE;
+      stateTimer = 0;
+    }
+  } else if (state === STATE_PAUSE) {
+    const wobble = Math.sin(stateTimer * 0.3) * 3;
+    drawMan(ctx, canvas.width * 0.15 + wobble, cy - 10, 1, 'shock', 0);
+    drawPuff(ctx, cx + 180, cy - 20, 12 * (1 - stateTimer / PHASE3_DURATION), 1 - stateTimer / PHASE3_DURATION);
+
+    stateTimer++;
+    if (stateTimer >= PHASE3_DURATION) {
+      state = STATE_APPROACH;
+      stateTimer = 0;
+    }
+  }
+
+  frame++;
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>

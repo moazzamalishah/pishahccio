@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hand Gesture RPS</title>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+#scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 16px;
+  background: #16213e;
+  border-bottom: 2px solid #0f3460;
+}
+.player-name { font-size: 24px; font-weight: bold; color: #e94560; }
+.player-name:last-of-type { color: #f5a623; }
+.vs { font-size: 18px; color: #888; }
+#score { font-size: 28px; font-weight: bold; color: #fff; margin-left: 20px; }
+
+#main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+#camera-panel {
+  flex: 1;
+  position: relative;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#webcam {
+  display: none;
+}
+#overlay {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+}
+
+#game-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: #1a1a2e;
+}
+#countdown {
+  font-size: 80px;
+  font-weight: bold;
+  color: #e94560;
+  min-height: 100px;
+}
+#result-area {
+  text-align: center;
+  display: none;
+}
+#result-area.visible { display: block; }
+.result-row { display: flex; align-items: center; justify-content: center; gap: 30px; }
+.result-col { display: flex; flex-direction: column; align-items: center; }
+#vs-divider { font-size: 20px; color: #888; font-weight: bold; }
+.move-display { font-size: 36px; margin: 5px 0; }
+#ai-hand-canvas { border: 1px solid #333; border-radius: 8px; margin-top: 5px; }
+#result-text { font-size: 32px; font-weight: bold; margin: 20px 0; color: #f5a623; }
+#idle-prompt { font-size: 28px; color: #888; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+#loading-spinner { font-size: 20px; color: #888; display: none; }
+
+#bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 12px;
+  background: #16213e;
+  border-top: 2px solid #0f3460;
+}
+#round-info { font-size: 18px; color: #888; }
+#play-again {
+  padding: 10px 30px;
+  font-size: 18px;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#play-again:hover { background: #d63851; }
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection"></script>
+</head>
+<body>
+
+  <div id="scoreboard">
+    <div class="player-name">PISTA</div>
+    <div class="vs">VS</div>
+    <div class="player-name">CLANKER</div>
+    <div id="score">0 - 0</div>
+  </div>
+
+  <div id="main-content">
+    <div id="camera-panel">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div id="game-panel">
+      <div id="countdown"></div>
+      <div id="result-area">
+        <div class="result-row">
+          <div class="result-col">
+            <div id="player-move" class="move-display"></div>
+          </div>
+          <div id="vs-divider">VS</div>
+          <div class="result-col">
+            <div id="ai-move" class="move-display"></div>
+            <canvas id="ai-hand-canvas" width="160" height="180"></canvas>
+          </div>
+        </div>
+        <div id="result-text"></div>
+      </div>
+      <div id="idle-prompt">Show your hand to play</div>
+      <div id="loading-spinner">Loading model...</div>
+    </div>
+  </div>
+
+  <div id="bottom-bar">
+    <div id="round-info">Best of 3</div>
+    <button id="play-again" style="display:none">Play Again</button>
+  </div>
+
+  <script>
+const video = document.getElementById('webcam');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
+const countdownEl = document.getElementById('countdown');
+const resultArea = document.getElementById('result-area');
+const playerMoveEl = document.getElementById('player-move');
+const aiMoveEl = document.getElementById('ai-move');
+const resultTextEl = document.getElementById('result-text');
+const idlePrompt = document.getElementById('idle-prompt');
+const loadingSpinner = document.getElementById('loading-spinner');
+const scoreEl = document.getElementById('score');
+const roundInfoEl = document.getElementById('round-info');
+const playAgainBtn = document.getElementById('play-again');
+const aiHandCanvas = document.getElementById('ai-hand-canvas');
+const aiHandCtx = aiHandCanvas.getContext('2d');
+
+let detector = null;
+const STATE = {
+  IDLE: 'idle',
+  COUNTDOWN: 'countdown',
+  SNAPSHOT: 'snapshot',
+  SHOW_RESULT: 'show_result',
+  GAME_OVER: 'game_over',
+};
+
+let state = STATE.IDLE;
+let countdownStep = 0;
+let countdownStartTime = 0;
+let playerGesture = null;
+let aiGesture = null;
+let playerScore = 0;
+let aiScore = 0;
+let roundNumber = 0;
+let resultTimeout = null;
+let latestGesture = null;
+let gestureFrameCount = 0;
+const REQUIRED_FRAMES = 3;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    video.srcObject = stream;
+    await video.play();
+  } catch (err) {
+    idlePrompt.textContent = 'Camera access denied. Please allow camera permissions.';
+    loadingSpinner.style.display = 'none';
+    throw err;
+  }
+}
+
+async function loadModel() {
+  loadingSpinner.style.display = 'block';
+  try {
+    const model = handPoseDetection.SupportedModels.MediaPipeHands;
+    const config = {
+      runtime: 'mediapipe',
+      solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
+      modelType: 'lite',
+    };
+    detector = await handPoseDetection.createDetector(model, config);
+  } catch (err) {
+    idlePrompt.textContent = 'Failed to load hand detection model. Check your connection.';
+    throw err;
+  } finally {
+    loadingSpinner.style.display = 'none';
+  }
+}
+
+async function init() {
+  video.addEventListener('loadedmetadata', () => {
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+  });
+  await startCamera();
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+  }
+  await loadModel();
+  startGameLoop();
+}
+
+init().catch(err => {
+  console.error('Init failed:', err);
+  if (idlePrompt.textContent === 'Show your hand to play') {
+    idlePrompt.textContent = 'Something went wrong. Please refresh and try again.';
+  }
+});
+
+async function detectHands() {
+  if (!detector) return null;
+  const hands = await detector.estimateHands(video);
+  if (hands.length === 0) {
+    gestureFrameCount = 0;
+    latestGesture = null;
+    return null;
+  }
+  return hands[0].keypoints;
+}
+
+function classifyGesture(keypoints) {
+  const kp = {};
+  keypoints.forEach(k => { kp[k.name] = k; });
+
+  const indexTip = kp['index_finger_tip'];
+  const indexPip = kp['index_finger_pip'];
+  const middleTip = kp['middle_finger_tip'];
+  const middlePip = kp['middle_finger_pip'];
+  const ringTip = kp['ring_finger_tip'];
+  const ringPip = kp['ring_finger_pip'];
+  const pinkyTip = kp['pinky_finger_tip'];
+  const pinkyPip = kp['pinky_finger_pip'];
+
+  const indexUp = indexTip.y < indexPip.y;
+  const middleUp = middleTip.y < middlePip.y;
+  const ringUp = ringTip.y < ringPip.y;
+  const pinkyUp = pinkyTip.y < pinkyPip.y;
+
+  const fingersUp = [indexUp, middleUp, ringUp, pinkyUp];
+  const count = fingersUp.filter(Boolean).length;
+
+  if (count === 0) return 'rock';
+  if (count === 4) return 'paper';
+  if (indexUp && middleUp && !ringUp && !pinkyUp) return 'scissors';
+  return null;
+}
+
+function drawKeypoints(keypoints) {
+  keypoints.forEach(kp => {
+    ctx.beginPath();
+    ctx.arc(kp.x, kp.y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = '#e94560';
+    ctx.fill();
+  });
+}
+
+const CONNECTIONS = [
+  ['wrist', 'thumb_cmc'], ['thumb_cmc', 'thumb_mcp'], ['thumb_mcp', 'thumb_ip'], ['thumb_ip', 'thumb_tip'],
+  ['wrist', 'index_finger_mcp'], ['index_finger_mcp', 'index_finger_pip'], ['index_finger_pip', 'index_finger_dip'], ['index_finger_dip', 'index_finger_tip'],
+  ['wrist', 'middle_finger_mcp'], ['middle_finger_mcp', 'middle_finger_pip'], ['middle_finger_pip', 'middle_finger_dip'], ['middle_finger_dip', 'middle_finger_tip'],
+  ['wrist', 'ring_finger_mcp'], ['ring_finger_mcp', 'ring_finger_pip'], ['ring_finger_pip', 'ring_finger_dip'], ['ring_finger_dip', 'ring_finger_tip'],
+  ['wrist', 'pinky_finger_mcp'], ['pinky_finger_mcp', 'pinky_finger_pip'], ['pinky_finger_pip', 'pinky_finger_dip'], ['pinky_finger_dip', 'pinky_finger_tip'],
+];
+
+function drawSkeleton(keypoints) {
+  const map = {};
+  keypoints.forEach(k => { map[k.name] = k; });
+  ctx.strokeStyle = '#0ff';
+  ctx.lineWidth = 2;
+  CONNECTIONS.forEach(([a, b]) => {
+    if (map[a] && map[b]) {
+      ctx.beginPath();
+      ctx.moveTo(map[a].x, map[a].y);
+      ctx.lineTo(map[b].x, map[b].y);
+      ctx.stroke();
+    }
+  });
+}
+
+function getAIPoseKeypoints(gesture, w, h) {
+  const s = Math.min(w, h) / 200;
+  const cx = w * 0.5;
+  const baseY = h * 0.65;
+
+  const folded = (tipX, tipY, pipX, pipY) => [pipX + (tipX - pipX) * 0.2, pipY + (tipY - pipY) * 0.3 + 10 * s];
+  const extended = (tipX, tipY, _, __) => [tipX, tipY];
+
+  const fingers = {
+    thumb: { tip: [-38 * s, -42 * s], pip: [-32 * s, -18 * s] },
+    index: { tip: [-12 * s, -78 * s], pip: [-5 * s, -22 * s] },
+    middle: { tip: [4 * s, -88 * s], pip: [5 * s, -25 * s] },
+    ring: { tip: [20 * s, -74 * s], pip: [15 * s, -20 * s] },
+    pinky: { tip: [34 * s, -56 * s], pip: [28 * s, -10 * s] },
+  };
+
+  const up = {
+    rock: { thumb: false, index: false, middle: false, ring: false, pinky: false },
+    paper: { thumb: false, index: true, middle: true, ring: true, pinky: true },
+    scissors: { thumb: false, index: true, middle: true, ring: false, pinky: false },
+  }[gesture];
+
+  const jointOffsets = {
+    wrist: [0, 28 * s],
+    thumb_cmc: [-15 * s, 15 * s], thumb_mcp: [-24 * s, 5 * s], thumb_ip: [-30 * s, -8 * s],
+    index_mcp: [-5 * s, 2 * s], index_pip: [-5 * s, -12 * s], index_dip: [-4 * s, -22 * s],
+    middle_mcp: [4 * s, 0], middle_pip: [5 * s, -14 * s], middle_dip: [5 * s, -26 * s],
+    ring_mcp: [14 * s, 1 * s], ring_pip: [15 * s, -11 * s], ring_dip: [14 * s, -22 * s],
+    pinky_mcp: [24 * s, 5 * s], pinky_pip: [26 * s, -5 * s], pinky_dip: [25 * s, -14 * s],
+  };
+
+  const [thumbTipX, thumbTipY] = up.thumb ? extended(...fingers.thumb.tip, ...fingers.thumb.pip) : folded(...fingers.thumb.tip, ...fingers.thumb.pip);
+  const [indexTipX, indexTipY] = up.index ? extended(...fingers.index.tip, ...fingers.index.pip) : folded(...fingers.index.tip, ...fingers.index.pip);
+  const [middleTipX, middleTipY] = up.middle ? extended(...fingers.middle.tip, ...fingers.middle.pip) : folded(...fingers.middle.tip, ...fingers.middle.pip);
+  const [ringTipX, ringTipY] = up.ring ? extended(...fingers.ring.tip, ...fingers.ring.pip) : folded(...fingers.ring.tip, ...fingers.ring.pip);
+  const [pinkyTipX, pinkyTipY] = up.pinky ? extended(...fingers.pinky.tip, ...fingers.pinky.pip) : folded(...fingers.pinky.tip, ...fingers.pinky.pip);
+
+  const pos = (name) => {
+    const o = jointOffsets[name] || [0, 0];
+    return { x: cx + o[0], y: baseY + o[1] };
+  };
+
+  return [
+    { ...pos('wrist'), name: 'wrist' },
+    { ...pos('thumb_cmc'), name: 'thumb_cmc' }, { ...pos('thumb_mcp'), name: 'thumb_mcp' }, { x: cx + fingers.thumb.pip[0], y: baseY + fingers.thumb.pip[1], name: 'thumb_ip' }, { x: cx + thumbTipX, y: baseY + thumbTipY, name: 'thumb_tip' },
+    { ...pos('index_mcp'), name: 'index_finger_mcp' }, { ...pos('index_pip'), name: 'index_finger_pip' }, { ...pos('index_dip'), name: 'index_finger_dip' }, { x: cx + indexTipX, y: baseY + indexTipY, name: 'index_finger_tip' },
+    { ...pos('middle_mcp'), name: 'middle_finger_mcp' }, { ...pos('middle_pip'), name: 'middle_finger_pip' }, { ...pos('middle_dip'), name: 'middle_finger_dip' }, { x: cx + middleTipX, y: baseY + middleTipY, name: 'middle_finger_tip' },
+    { ...pos('ring_mcp'), name: 'ring_finger_mcp' }, { ...pos('ring_pip'), name: 'ring_finger_pip' }, { ...pos('ring_dip'), name: 'ring_finger_dip' }, { x: cx + ringTipX, y: baseY + ringTipY, name: 'ring_finger_tip' },
+    { ...pos('pinky_mcp'), name: 'pinky_finger_mcp' }, { ...pos('pinky_pip'), name: 'pinky_finger_pip' }, { ...pos('pinky_dip'), name: 'pinky_finger_dip' }, { x: cx + pinkyTipX, y: baseY + pinkyTipY, name: 'pinky_finger_tip' },
+  ];
+}
+
+function drawAIHand(gesture) {
+  aiHandCtx.clearRect(0, 0, aiHandCanvas.width, aiHandCanvas.height);
+  const kp = getAIPoseKeypoints(gesture, aiHandCanvas.width, aiHandCanvas.height);
+  const map = {};
+  kp.forEach(k => { map[k.name] = k; });
+
+  aiHandCtx.strokeStyle = '#f5a623';
+  aiHandCtx.lineWidth = 2;
+  CONNECTIONS.forEach(([a, b]) => {
+    if (map[a] && map[b]) {
+      aiHandCtx.beginPath();
+      aiHandCtx.moveTo(map[a].x, map[a].y);
+      aiHandCtx.lineTo(map[b].x, map[b].y);
+      aiHandCtx.stroke();
+    }
+  });
+
+  kp.forEach(k => {
+    aiHandCtx.beginPath();
+    aiHandCtx.arc(k.x, k.y, 3, 0, 2 * Math.PI);
+    aiHandCtx.fillStyle = '#f5a623';
+    aiHandCtx.fill();
+  });
+}
+
+function startGameLoop() {
+  idlePrompt.style.display = 'none';
+  requestAnimationFrame(gameLoop);
+}
+
+const GESTURE_EMOJI = { rock: '✊', paper: '✋', scissors: '✌️' };
+const COUNTDOWN_LABELS = ['Rock', 'Paper', 'Scissors', 'Shoot'];
+const COUNTDOWN_INTERVAL_MS = 1000;
+
+function transitionToIdle() {
+  state = STATE.IDLE;
+  countdownEl.textContent = '';
+  resultArea.classList.remove('visible');
+  aiHandCtx.clearRect(0, 0, aiHandCanvas.width, aiHandCanvas.height);
+}
+
+function startCountdown() {
+  if (state === STATE.COUNTDOWN) return;
+  state = STATE.COUNTDOWN;
+  idlePrompt.style.display = 'none';
+  resultArea.classList.remove('visible');
+  countdownStep = 0;
+  countdownStartTime = performance.now();
+  countdownEl.textContent = COUNTDOWN_LABELS[0];
+}
+
+function takeSnapshot() {
+  state = STATE.SNAPSHOT;
+  const moves = ['rock', 'paper', 'scissors'];
+
+  if (gestureFrameCount >= REQUIRED_FRAMES && latestGesture) {
+    playerGesture = latestGesture;
+  } else {
+    playerGesture = moves[Math.floor(Math.random() * 3)];
+  }
+
+  aiGesture = moves[Math.floor(Math.random() * 3)];
+
+  showResult();
+}
+
+async function gameLoop() {
+  const keypoints = await detectHands();
+
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  if (keypoints) {
+    drawSkeleton(keypoints);
+    drawKeypoints(keypoints);
+
+    const gesture = classifyGesture(keypoints);
+    if (gesture && gesture === latestGesture) {
+      gestureFrameCount++;
+    } else if (gesture) {
+      latestGesture = gesture;
+      gestureFrameCount = 1;
+    } else {
+      gestureFrameCount = 0;
+      latestGesture = null;
+    }
+  }
+
+  switch (state) {
+    case STATE.IDLE:
+      startCountdown();
+      break;
+
+    case STATE.COUNTDOWN:
+      const elapsed = performance.now() - countdownStartTime;
+      const step = Math.floor(elapsed / COUNTDOWN_INTERVAL_MS);
+      if (step !== countdownStep) {
+        countdownStep = step;
+        if (step < COUNTDOWN_LABELS.length) {
+          countdownEl.textContent = COUNTDOWN_LABELS[step];
+        }
+        if (step >= COUNTDOWN_LABELS.length) {
+          takeSnapshot();
+        }
+      }
+      break;
+
+    case STATE.SNAPSHOT:
+    case STATE.SHOW_RESULT:
+    case STATE.GAME_OVER:
+      break;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function showResult() {
+  state = STATE.SHOW_RESULT;
+  countdownEl.textContent = '';
+  resultArea.classList.add('visible');
+
+  playerMoveEl.textContent = `${GESTURE_EMOJI[playerGesture]} Pista`;
+  aiMoveEl.textContent = `Clanker ${GESTURE_EMOJI[aiGesture]}`;
+  drawAIHand(aiGesture);
+
+  roundNumber++;
+
+  const beats = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
+  if (playerGesture === aiGesture) {
+    resultTextEl.textContent = 'Draw!';
+  } else if (beats[playerGesture] === aiGesture) {
+    playerScore++;
+    resultTextEl.textContent = 'You Win!';
+  } else {
+    aiScore++;
+    resultTextEl.textContent = 'Clanker Wins!';
+  }
+
+  scoreEl.textContent = `${playerScore} - ${aiScore}`;
+  roundInfoEl.textContent = `Round ${roundNumber} (best of 3)`;
+
+  resultTimeout = setTimeout(() => {
+    resultTimeout = null;
+    if (playerScore >= 2 || aiScore >= 2) {
+      showGameOver();
+    } else {
+      transitionToIdle();
+    }
+  }, 2000);
+}
+
+function showGameOver() {
+  state = STATE.GAME_OVER;
+  resultArea.classList.add('visible');
+
+  if (playerScore > aiScore) {
+    resultTextEl.textContent = 'Pista is the Champion!';
+  } else {
+    resultTextEl.textContent = 'Clanker is the Champion!';
+  }
+
+  playerMoveEl.textContent = '';
+  aiMoveEl.textContent = '';
+  aiHandCtx.clearRect(0, 0, aiHandCanvas.width, aiHandCanvas.height);
+  playAgainBtn.style.display = 'inline-block';
+}
+
+playAgainBtn.addEventListener('click', () => {
+  if (resultTimeout) { clearTimeout(resultTimeout); resultTimeout = null; }
+  playerScore = 0;
+  aiScore = 0;
+  roundNumber = 0;
+  scoreEl.textContent = '0 - 0';
+  playAgainBtn.style.display = 'none';
+  resultArea.classList.remove('visible');
+  roundInfoEl.textContent = 'Best of 3';
+  transitionToIdle();
+});
+  </script>
+</body>
+</html>

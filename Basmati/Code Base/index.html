@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casa Pista — Handwritten Recipes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Literata:opsz,wght@7..72,300;7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #F5F0E8;
+            --card-bg: #FAF7F2;
+            --text: #2C2C24;
+            --olive: #5B6C3E;
+            --olive-light: #7C8F5A;
+            --burgundy: #6B2D3C;
+            --muted: #8A7F72;
+            --font-heading: 'Caveat', cursive, serif;
+            --font-body: 'Literata', Georgia, serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Handmade paper texture background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg);
+            background-image:
+                /* Fiber texture - subtle organic strands */
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 1px,
+                    rgba(91, 108, 62, 0.02) 1px,
+                    rgba(91, 108, 62, 0.02) 2px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 3px,
+                    rgba(107, 45, 60, 0.015) 3px,
+                    rgba(107, 45, 60, 0.015) 4px
+                ),
+                /* Soft pulp flecks */
+                radial-gradient(circle at 20% 30%, rgba(91, 108, 62, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(107, 45, 60, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 85% 15%, rgba(91, 108, 62, 0.05) 0%, transparent 30%),
+                radial-gradient(circle at 10% 80%, rgba(107, 45, 60, 0.02) 0%, transparent 35%),
+                /* Noise grain */
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.35'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--olive);
+            letter-spacing: 1px;
+            margin-bottom: 0.2rem;
+        }
+
+        /* Rough underline for headings */
+        .title-underline {
+            display: inline-block;
+            padding-bottom: 4px;
+            background-image: url("data:image/svg+xml,%3Csvg width='200' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 Q 20 0, 40 5 T 80 5 T 120 5 T 160 5 T 190 5' stroke='%236B2D3C' fill='none' stroke-width='2.5' opacity='0.4'/%3E%3C/svg%3E");
+            background-repeat: repeat-x;
+            background-position: bottom;
+            background-size: 80px 8px;
+        }
+
+        .tagline {
+            font-family: var(--font-heading);
+            font-size: 1.2rem;
+            color: var(--muted);
+            margin-top: 0.3rem;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .recipe-grid {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .recipe-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border: 2.5px dashed var(--olive-light);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            max-width: 400px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .card-particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .card-particle.rice {
+            background: #e8ddd0;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        }
+
+        .card-particle.pista {
+            background: #7C8F5A;
+        }
+
+        .recipe-card:hover .card-particle {
+            opacity: 0.7;
+            animation-play-state: running !important;
+        }
+
+        @keyframes floatRice {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(20px, -15px) rotate(20deg); }
+            50% { transform: translate(35px, 10px) rotate(5deg); }
+            75% { transform: translate(10px, 25px) rotate(-15deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        @keyframes floatPista {
+            0% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-18px, -20px) scale(1.1); }
+            50% { transform: translate(-32px, 5px) scale(0.9); }
+            75% { transform: translate(-15px, 22px) scale(1.05); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        .recipe-card:nth-child(odd) {
+            transform: rotate(-0.5deg);
+        }
+
+        .recipe-card:nth-child(even) {
+            transform: rotate(0.7deg);
+        }
+
+        .recipe-card:hover {
+            background: var(--card-bg);
+            box-shadow: 4px 6px 12px rgba(0,0,0,0.08), -2px 3px 6px rgba(0,0,0,0.04);
+            border-style: solid;
+            border-color: var(--olive);
+            animation: vibrate 0.3s ease-in-out infinite;
+        }
+
+        @keyframes vibrate {
+            0% { transform: rotate(0deg) translateX(0); }
+            25% { transform: rotate(0.3deg) translateX(1px); }
+            50% { transform: rotate(-0.2deg) translateX(-1px); }
+            75% { transform: rotate(0.2deg) translateX(1px); }
+            100% { transform: rotate(0deg) translateX(0); }
+        }
+
+        .recipe-card.hidden {
+            display: none;
+        }
+
+        .recipe-card .emoji {
+            font-size: 2.5rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recipe-card h2 {
+            font-family: var(--font-heading);
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--olive);
+            border: none;
+            padding: 0;
+            margin-bottom: 0.3rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recipe-card .time {
+            font-family: var(--font-heading);
+            font-size: 0.95rem;
+            color: var(--burgundy);
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recipe-card .description {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 0.8rem;
+            line-height: 1.5;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recipe-card .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .recipe-card .tag {
+            font-family: var(--font-heading);
+            font-size: 0.9rem;
+            padding: 0.1rem 0.6rem;
+            border: 1.5px solid var(--olive-light);
+            border-radius: 50px;
+            color: var(--olive);
+        }
+
+        .back-btn {
+            font-family: var(--font-heading);
+            font-size: 1.3rem;
+            color: var(--olive);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 0 0.5rem 0;
+            display: block;
+            text-align: left;
+            transition: transform 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: translateX(-4px);
+        }
+
+        .recipe-detail {
+            max-width: 720px;
+            margin: 0 auto;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .recipe-detail .detail-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .recipe-detail .detail-header .emoji {
+            font-size: 3.5rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .recipe-detail .detail-header h2 {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: var(--olive);
+            border: none;
+            padding: 0;
+            text-align: center;
+            margin-bottom: 0.3rem;
+        }
+
+        .recipe-detail .detail-header .chef {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-time {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            color: var(--burgundy);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .recipe-detail .detail-header .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .recipe-detail .detail-header .tag {
+            font-family: var(--font-heading);
+            font-size: 0.95rem;
+            padding: 0.15rem 0.7rem;
+            border: 1.5px solid var(--olive-light);
+            border-radius: 50px;
+            color: var(--olive);
+        }
+
+        .ingredients-box {
+            background: var(--card-bg);
+            border: 2px dashed var(--olive-light);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .ingredients-box h3 {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            color: var(--burgundy);
+            margin-bottom: 0.8rem;
+            border-bottom: 2px dashed var(--olive-light);
+            padding-bottom: 0.4rem;
+        }
+
+        .ingredients-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .ingredients-box li {
+            padding: 0.3rem 0;
+            padding-left: 1.8rem;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .ingredients-box li:hover {
+            color: var(--burgundy);
+            cursor: default;
+        }
+
+        .ingredients-box li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--burgundy);
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+        }
+
+        .step-group {
+            background: var(--card-bg);
+            border: 2px dashed var(--olive-light);
+            border-radius: 12px;
+            padding: 1.2rem 1.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .step-group h3 {
+            font-family: var(--font-heading);
+            font-size: 1.3rem;
+            color: var(--olive);
+            margin-bottom: 0.5rem;
+        }
+
+        .step-group ol {
+            padding-left: 1.5rem;
+        }
+
+        .step-group li {
+            margin-bottom: 0.4rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            transition: color 0.15s;
+        }
+
+        .step-group li:hover {
+            color: var(--burgundy);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1rem;
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 1rem 0.75rem; }
+            h1 { font-size: 2.2rem; }
+            .tagline { font-size: 1rem; }
+            .recipe-grid {
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .recipe-card {
+                padding: 1rem;
+            }
+
+            .recipe-card:nth-child(odd),
+            .recipe-card:nth-child(even) {
+                transform: none;
+            }
+
+            .recipe-detail .detail-header h2 { font-size: 1.6rem; }
+            .ingredients-box { padding: 1rem 1.2rem; }
+            .step-group { padding: 1rem 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="title-underline">Casa Pista</span></h1>
+            <p class="tagline">handwritten recipes from an imperfect kitchen</p>
+        </header>
+
+        <main id="home" class="view active"></main>
+        <section id="recipe-view" class="view"></section>
+
+        <footer>
+            <p>&copy; 2026 Moazzam</p>
+        </footer>
+    </div>
+    <script>
+        const recipes = [
+    {
+        id: 'basmati-rice',
+        title: 'Basmati Rice with Pistachio Paste, Scrambled Eggs and Tuna',
+        chef: 'Moazzam',
+        description: 'Fluffy basmati rice, soft scrambled eggs, and flaked tuna — a humble, satisfying one-pan meal.',
+        tags: ['Rice', 'Eggs', 'Tuna', 'Quick'],
+        emoji: '🍚',
+        time: '1 hr 20 mins',
+        ingredients: [
+            '1 cup Basmati rice',
+            '1.5 cups water (for cooking)',
+            'Cold water (for soaking and rinsing)',
+            '2 fresh eggs',
+            '1 can of tuna (packed in oil or water)',
+            '1 tbsp pistachio paste',
+            '1 tbsp cooking oil',
+            'Salt (to taste, optional)'
+        ],
+        steps: [
+            ['Soak the Rice', [
+                'Retrieve the sealed package of Basmati rice and open it.',
+                'Measure 1 cup of dry rice using a measuring cup.',
+                'Place the rice in a mixing bowl and fill with cold water until the water level is at least 2 cm above the rice.',
+                'Let the rice soak for exactly 60 minutes.',
+                'After soaking, drain the water using a fine-mesh strainer.',
+                'Return the drained rice to the bowl.'
+            ]],
+            ['Rinse the Rice', [
+                'Cover the rice with fresh cold water.',
+                'Gently agitate the rice for 10 seconds to rinse off excess starch.',
+                'Drain through a fine-mesh strainer.',
+                'Repeat the rinsing process a second time.',
+                'Ensure the draining water runs clear, then let the strainer sit for 2 minutes to drain excess water.'
+            ]],
+            ['Cook the Rice', [
+                'Transfer the cleaned rice to a cooking pot.',
+                'Add 1.5 cups of fresh water.',
+                'Place the pot on a stovetop burner over high heat and bring to a rolling boil.',
+                'Cover with a tight-fitting lid and immediately reduce the heat to the lowest setting.',
+                'Cook for exactly 12 minutes without lifting the lid.',
+                'Turn off the heat and let the pot steam for another 5 minutes with the lid on.',
+                'Remove the lid and fluff the rice with a fork.'
+            ]],
+            ['Prepare the Eggs', [
+                'Crack 2 eggs into a small bowl.',
+                'Whisk until the yolks and whites are fully blended into a uniform yellow liquid.'
+            ]],
+            ['Prepare the Tuna', [
+                'Open the can of tuna and drain all excess oil or water.',
+                'Flake the tuna into small pieces using a fork.'
+            ]],
+            ['Combine and Serve', [
+                'Heat 1 tablespoon of cooking oil in a frying pan over medium heat for 1 minute.',
+                'Pour the whisked eggs into the pan and scramble until soft curds form.',
+                'Add the cooked Basmati rice to the pan with the scrambled eggs.',
+                'Add the flaked tuna to the pan.',
+                'Gently fold and stir all ingredients together over medium-low heat for 2 minutes.',
+                'Turn off the heat and transfer the finished mixture to a serving plate.'
+            ]]
+        ]
+    }
+];
+
+let audioCtx = null;
+let lastMouseY = 0;
+
+document.addEventListener('mousemove', function (e) {
+    lastMouseY = e.clientY;
+});
+
+function playHoverSound(e) {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const movingUp = e.clientY < lastMouseY;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (movingUp) {
+            osc.frequency.value = 380;
+            osc.type = 'triangle';
+            gain.gain.setValueAtTime(0.025, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.1);
+        } else {
+            osc.frequency.value = 520;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.08);
+        }
+    } catch (e) {
+        // Audio not supported
+    }
+}
+
+function createParticles(card) {
+    for (let i = 0; i < 12; i++) {
+        const isRice = i < 7;
+        const el = document.createElement('span');
+        el.className = 'card-particle ' + (isRice ? 'rice' : 'pista');
+
+        const size = isRice ? (6 + Math.random() * 6) : (5 + Math.random() * 6);
+        el.style.width = isRice ? size + 'px' : size + 'px';
+        el.style.height = isRice ? (size * 1.4) + 'px' : size + 'px';
+
+        el.style.left = (5 + Math.random() * 70) + '%';
+        el.style.top = (5 + Math.random() * 70) + '%';
+
+        const dur = 1.5 + Math.random() * 2;
+        const delay = Math.random() * 2;
+        el.style.animationName = isRice ? 'floatRice' : 'floatPista';
+        el.style.animationDuration = dur + 's';
+        el.style.animationDelay = delay + 's';
+        el.style.animationTimingFunction = 'ease-in-out';
+        el.style.animationIterationCount = 'infinite';
+        el.style.animationPlayState = 'paused';
+
+        card.appendChild(el);
+    }
+}
+
+function renderHome() {
+    const home = document.getElementById('home');
+    home.innerHTML = '';
+
+    // Build grid
+    const grid = document.createElement('div');
+    grid.className = 'recipe-grid';
+
+    recipes.forEach(recipe => {
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        card.dataset.id = recipe.id;
+
+        const emoji = document.createElement('span');
+        emoji.className = 'emoji';
+        emoji.textContent = recipe.emoji;
+        card.appendChild(emoji);
+
+        const title = document.createElement('h2');
+        title.textContent = recipe.title;
+        card.appendChild(title);
+
+        const timeEl = document.createElement('p');
+        timeEl.className = 'time';
+        timeEl.textContent = '⏱ ' + recipe.time;
+        card.appendChild(timeEl);
+
+        const desc = document.createElement('p');
+        desc.className = 'description';
+        desc.textContent = recipe.description;
+        card.appendChild(desc);
+
+        const tags = document.createElement('div');
+        tags.className = 'tags';
+        recipe.tags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'tag';
+            span.textContent = tag;
+            tags.appendChild(span);
+        });
+        card.appendChild(tags);
+
+        card.addEventListener('click', () => showRecipe(recipe.id));
+        createParticles(card);
+        grid.appendChild(card);
+    });
+
+    home.appendChild(grid);
+}
+
+function buildRecipeDetail(recipe) {
+    const div = document.createElement('div');
+    div.className = 'recipe-detail';
+
+    // Back button (top, left-aligned)
+    const backBtn = document.createElement('button');
+    backBtn.className = 'back-btn';
+    backBtn.innerHTML = '← Back';
+    backBtn.addEventListener('click', showHome);
+    div.appendChild(backBtn);
+
+    // Header (emoji, title, chef, time, tags) on top
+    const header = document.createElement('div');
+    header.className = 'detail-header';
+
+    const emoji = document.createElement('span');
+    emoji.className = 'emoji';
+    emoji.textContent = recipe.emoji;
+    header.appendChild(emoji);
+
+    const title = document.createElement('h2');
+    title.textContent = recipe.title;
+    header.appendChild(title);
+
+    const chef = document.createElement('p');
+    chef.className = 'chef';
+    chef.textContent = 'Chef: ' + recipe.chef;
+    header.appendChild(chef);
+
+    const timeEl = document.createElement('p');
+    timeEl.className = 'detail-time';
+    timeEl.textContent = '⏱ ' + recipe.time;
+    header.appendChild(timeEl);
+
+    const tags = document.createElement('div');
+    tags.className = 'tags';
+    recipe.tags.forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.textContent = t;
+        tags.appendChild(span);
+    });
+    header.appendChild(tags);
+
+    div.appendChild(header);
+
+    // Ingredients
+    const ingBox = document.createElement('div');
+    ingBox.className = 'ingredients-box';
+    const ingTitle = document.createElement('h3');
+    ingTitle.textContent = 'Ingredients';
+    ingBox.appendChild(ingTitle);
+    const ingList = document.createElement('ul');
+    recipe.ingredients.forEach(ing => {
+        const li = document.createElement('li');
+        li.textContent = ing;
+        li.addEventListener('mouseenter', playHoverSound);
+        ingList.appendChild(li);
+    });
+    ingBox.appendChild(ingList);
+    div.appendChild(ingBox);
+
+    // Steps
+    recipe.steps.forEach(([stepTitle, stepItems]) => {
+        const group = document.createElement('div');
+        group.className = 'step-group';
+        const h3 = document.createElement('h3');
+        h3.textContent = stepTitle;
+        group.appendChild(h3);
+        const ol = document.createElement('ol');
+        stepItems.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            li.addEventListener('mouseenter', playHoverSound);
+            ol.appendChild(li);
+        });
+        group.appendChild(ol);
+        div.appendChild(group);
+    });
+
+    return div;
+}
+
+function showHome() {
+    document.querySelector('header').style.display = '';
+    document.getElementById('recipe-view').classList.remove('active');
+    document.getElementById('home').classList.add('active');
+    document.getElementById('recipe-view').innerHTML = '';
+    window.location.hash = '';
+}
+
+function showRecipe(id) {
+    const recipe = recipes.find(r => r.id === id);
+    if (!recipe) return;
+    document.querySelector('header').style.display = 'none';
+    window.location.hash = 'recipe-' + id;
+    document.getElementById('home').classList.remove('active');
+    const container = document.getElementById('recipe-view');
+    container.innerHTML = '';
+    container.appendChild(buildRecipeDetail(recipe));
+    container.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    renderHome();
+    const match = window.location.hash.match(/^#recipe-(.+)$/);
+    if (match) {
+        const recipe = recipes.find(r => r.id === match[1]);
+        if (recipe) showRecipe(recipe.id);
+    }
+});
+    </script>
+</body>
+</html>

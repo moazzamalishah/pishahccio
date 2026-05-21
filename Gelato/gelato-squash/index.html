@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GELATO Squash</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  h1 {
+    font-family: Impact, 'Arial Black', sans-serif;
+    font-size: min(20vw, 200px);
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    user-select: none;
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    h1 {
+      animation: squash 4.5s cubic-bezier(0.25, 0.4, 0.4, 1) infinite;
+    }
+  }
+  @keyframes squash {
+    0%   { transform: translateY(-80vh) scale(1); }
+    22%  { transform: translateY(0) scale(1); }
+    23%  { transform: translateY(0) scale(1.4, 0.15); }
+    55%  { transform: translateY(0) scale(1.4, 0.15); }
+    65%  { transform: translateY(0) scale(1); }
+    70%  { transform: translateY(0) scale(1.05, 0.95); }
+    75%  { transform: translateY(0) scale(1); }
+    100% { transform: translateY(0) scale(1); }
+  }
+</style>
+</head>
+<body>
+<main><h1>GELATO</h1></main>
+<script>
+let actx;
+function getAudioContext() {
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (actx.state === 'suspended') {
+    actx.resume();
+  }
+  return actx;
+}
+
+function playThud() {
+  const ctx = getAudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(70, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.15);
+  gain.gain.setValueAtTime(0.8, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.2);
+}
+
+const h1 = document.querySelector('h1');
+let thudTimer;
+function scheduleThud() {
+  clearTimeout(thudTimer);
+  thudTimer = setTimeout(playThud, 1000);
+}
+h1.addEventListener('animationiteration', scheduleThud);
+scheduleThud();
+
+document.addEventListener('click', () => { if (actx && actx.state === 'suspended') actx.resume(); }, { once: true });
+</script>
+</body>
+</html>
