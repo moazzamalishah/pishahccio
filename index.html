@@ -403,7 +403,10 @@ html, body {
 
 /* Popup Window */
 .window {
-  position: absolute;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 70vw;
   height: 65vh;
   background: #3a1e12;
@@ -1675,9 +1678,6 @@ function createWindow(type, title) {
   win.className = 'window';
   win.dataset.type = type;
   win.style.zIndex = ++zIndexCounter;
-  win.style.top = '50%';
-  win.style.left = '50%';
-  win.style.transform = 'translate(-50%, -50%)';
 
   win.innerHTML = `
     <div class="window-titlebar">
@@ -1771,15 +1771,9 @@ function createWindow(type, title) {
     playBlip();
     win.classList.toggle('maximized');
     winState.lastMode = win.classList.contains('maximized') ? 'maximized' : 'standard';
-    if (win.classList.contains('maximized')) {
-      win.style.top = '0';
-      win.style.left = '0';
-      win.style.transform = 'none';
-    } else {
-      win.style.top = '50%';
-      win.style.left = '50%';
-      win.style.transform = 'translate(-50%, -50%)';
-    }
+    win.style.top = '';
+    win.style.left = '';
+    win.style.transform = '';
   });
 
   win.addEventListener('mousedown', () => bringToFront(win));
@@ -1788,9 +1782,9 @@ function createWindow(type, title) {
   winState.activeWindow = type;
   if (winState.lastMode === 'maximized') {
     win.classList.add('maximized');
-    win.style.top = '0';
-    win.style.left = '0';
-    win.style.transform = 'none';
+    win.style.top = '';
+    win.style.left = '';
+    win.style.transform = '';
   }
   bringToFront(win);
 }
@@ -1879,7 +1873,6 @@ function restoreWindow(type) {
   }
 
   const win = entry.domElement;
-  const desktop = win.parentElement;
   bringToFront(win);
 
   win.style.left = '';
@@ -1890,32 +1883,36 @@ function restoreWindow(type) {
   win.style.opacity = '';
   win.style.transition = '';
   win.style.display = '';
+
   win.style.opacity = '0';
   void win.offsetWidth;
 
   const winWidth = win.offsetWidth;
   const winHeight = win.offsetHeight;
-  const centerLeft = (desktop.clientWidth - winWidth) / 2;
-  const centerTop = (desktop.clientHeight - winHeight) / 2;
+  const centerLeft = (window.innerWidth - winWidth) / 2;
+  const centerTop = (window.innerHeight - winHeight) / 2;
 
   win.style.left = centerLeft + 'px';
   win.style.top = centerTop + 'px';
   win.style.width = winWidth + 'px';
   win.style.height = winHeight + 'px';
+  win.style.transform = 'none';
+  void win.offsetWidth;
 
   const targetX = 10;
   const targetY = window.innerHeight - 20;
   const dx = targetX - centerLeft;
   const dy = targetY - centerTop;
   win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
-
   void win.offsetWidth;
 
   win.style.transition = 'transform 0.25s cubic-bezier(0, 0, 0.35, 1), opacity 0.2s ease-out';
   win.style.transform = 'none';
   win.style.opacity = '1';
 
-  setTimeout(() => {
+  function onRestoreEnd(e) {
+    if (e && e.propertyName !== 'transform') return;
+    win.removeEventListener('transitionend', onRestoreEnd);
     win.style.transition = '';
     win.style.left = '';
     win.style.top = '';
@@ -1926,7 +1923,8 @@ function restoreWindow(type) {
     entry.state = 'open';
     winState.activeWindow = type;
     playChime();
-  }, 300);
+  }
+  win.addEventListener('transitionend', onRestoreEnd);
 }
 
 const EXERCISES = [
