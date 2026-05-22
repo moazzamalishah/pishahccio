@@ -1807,7 +1807,6 @@ function minimizeWindow(type) {
   if (winState.activeWindow === type) winState.activeWindow = null;
 
   const rect = win.getBoundingClientRect();
-  entry.savedRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
 
   win.style.left = rect.left + 'px';
   win.style.top = rect.top + 'px';
@@ -1880,45 +1879,54 @@ function restoreWindow(type) {
   }
 
   const win = entry.domElement;
-  win.style.display = '';
+  const desktop = win.parentElement;
   bringToFront(win);
 
-  if (entry.savedRect) {
-    const targetX = 10;
-    const targetY = window.innerHeight - 20;
-    const dx = targetX - entry.savedRect.left;
-    const dy = targetY - entry.savedRect.top;
+  win.style.left = '';
+  win.style.top = '';
+  win.style.width = '';
+  win.style.height = '';
+  win.style.transform = '';
+  win.style.opacity = '';
+  win.style.transition = '';
+  win.style.display = '';
+  win.style.opacity = '0';
+  void win.offsetWidth;
 
-    win.style.left = entry.savedRect.left + 'px';
-    win.style.top = entry.savedRect.top + 'px';
-    win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
-    win.style.opacity = '0';
-    win.style.width = entry.savedRect.width + 'px';
-    win.style.height = entry.savedRect.height + 'px';
+  const winWidth = win.offsetWidth;
+  const winHeight = win.offsetHeight;
+  const centerLeft = (desktop.clientWidth - winWidth) / 2;
+  const centerTop = (desktop.clientHeight - winHeight) / 2;
 
-    void win.offsetWidth;
+  win.style.left = centerLeft + 'px';
+  win.style.top = centerTop + 'px';
+  win.style.width = winWidth + 'px';
+  win.style.height = winHeight + 'px';
 
-    win.style.transition = 'transform 0.25s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.2s ease-out';
-    win.style.transform = 'none';
-    win.style.opacity = '1';
+  const targetX = 10;
+  const targetY = window.innerHeight - 20;
+  const dx = targetX - centerLeft;
+  const dy = targetY - centerTop;
+  win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
 
-    setTimeout(() => {
-      win.style.transition = '';
-      win.style.left = '';
-      win.style.top = '';
-      win.style.width = '';
-      win.style.height = '';
-      win.style.transform = '';
-      win.style.opacity = '';
-      entry.state = 'open';
-      winState.activeWindow = type;
-      playChime();
-    }, 300);
-  } else {
+  void win.offsetWidth;
+
+  win.style.transition = 'transform 0.25s cubic-bezier(0, 0, 0.35, 1), opacity 0.2s ease-out';
+  win.style.transform = 'none';
+  win.style.opacity = '1';
+
+  setTimeout(() => {
+    win.style.transition = '';
+    win.style.left = '';
+    win.style.top = '';
+    win.style.width = '';
+    win.style.height = '';
+    win.style.transform = '';
+    win.style.opacity = '';
     entry.state = 'open';
     winState.activeWindow = type;
     playChime();
-  }
+  }, 300);
 }
 
 const EXERCISES = [
