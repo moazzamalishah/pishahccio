@@ -2393,7 +2393,7 @@ function createDragGhost(rect, html) {
   return g;
 }
 
-function checkGhostReject(ghost) {
+function checkBinHit(ghost) {
   const gRect = ghost.getBoundingClientRect();
   const bRect = document.getElementById('desktop-bin').getBoundingClientRect();
   const bCx = bRect.left + bRect.width / 2;
@@ -2404,10 +2404,11 @@ function checkGhostReject(ghost) {
 }
 
 function startGhostDrag(e, config) {
-  if (binRejecting) return;
+  if (binCharge.state !== 'idle') return;
   const t = e.currentTarget;
   const r = t.getBoundingClientRect();
   const ghost = createDragGhost(r, config.html);
+  config.origRect = r;
   ghostDragState = { ghost, config, startX: e.clientX, startY: e.clientY, oX: r.left, oY: r.top, active: false };
   document.addEventListener('mousemove', onGhostMove);
   document.addEventListener('mouseup', endGhostDrag);
@@ -2424,11 +2425,13 @@ function onGhostMove(e) {
   if (!ghostDragState.active) return;
   ghostDragState.ghost.style.left = (ghostDragState.oX + dx) + 'px';
   ghostDragState.ghost.style.top = (ghostDragState.oY + dy) + 'px';
-  if (checkGhostReject(ghostDragState.ghost)) {
-    ghostDragState.ghost.remove();
+  if (checkBinHit(ghostDragState.ghost)) {
+    const state = ghostDragState;
+    state.ghost.style.transition = 'none';
     document.removeEventListener('mousemove', onGhostMove);
     document.removeEventListener('mouseup', endGhostDrag);
     ghostDragState = null;
+    startBinCharge(state.ghost, state.config.origRect);
   }
 }
 
