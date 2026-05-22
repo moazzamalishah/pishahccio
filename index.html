@@ -1755,6 +1755,12 @@ function createWindow(type, title) {
 
   desktop.appendChild(win);
 
+  requestAnimationFrame(() => {
+    const rect = win.getBoundingClientRect();
+    win.dataset.defaultLeft = rect.left;
+    win.dataset.defaultTop = rect.top;
+  });
+
   const body = win.querySelector('.window-body');
   if (type === 'exercises') {
     buildExerciseGrid(body);
@@ -2247,7 +2253,7 @@ function startBinCharge(ghost, origRect) {
 
   document.getElementById('desktop-bin').classList.add('bin-charging');
 
-  binCharge.timer = setTimeout(() => ejectBinCharge(), 2000);
+  binCharge.timer = setTimeout(() => ejectBinCharge(), 1000);
 }
 
 function ejectBinCharge() {
@@ -2330,10 +2336,21 @@ function onWindowDrag(e) {
 }
 
 function endWindowDrag() {
-  if (binDragState?.win) binDragState.win.classList.remove('dragging');
+  const win = binDragState?.win;
+  const wasActive = binDragState?.active;
+  if (win) win.classList.remove('dragging');
   binDragState = null;
   document.removeEventListener('mousemove', onWindowDrag);
   document.removeEventListener('mouseup', endWindowDrag);
+  if (win && wasActive && !binRejecting && win.dataset.defaultLeft) {
+    win.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
+    win.style.left = win.dataset.defaultLeft + 'px';
+    win.style.top = win.dataset.defaultTop + 'px';
+    win.addEventListener('transitionend', function clearSnap() {
+      win.removeEventListener('transitionend', clearSnap);
+      win.style.transition = '';
+    });
+  }
 }
 
 function checkBinReject(win) {
