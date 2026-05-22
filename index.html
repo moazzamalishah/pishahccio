@@ -1228,14 +1228,6 @@ html, body {
   animation: hgBlink 0.15s step-end infinite;
 }
 
-.window.dragging {
-  cursor: grabbing !important;
-}
-
-.window.dragging .window-titlebar {
-  cursor: grabbing !important;
-}
-
 /* Drag ghost */
 .drag-ghost {
   position: fixed;
@@ -1614,30 +1606,6 @@ function playStaticFlash() {
   src.start(ctx.currentTime);
 }
 
-function playSpit() {
-  const ctx = getAudioCtx();
-  const len = ctx.sampleRate * 0.06;
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const g = ctx.createGain();
-  g.gain.value = 0.08;
-  src.connect(g).connect(ctx.destination);
-  src.start(ctx.currentTime);
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(300, ctx.currentTime + 0.02);
-  osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.1);
-  gain.gain.setValueAtTime(0.05, ctx.currentTime + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(ctx.currentTime + 0.02);
-  osc.stop(ctx.currentTime + 0.14);
-}
-
 function playBoing() {
   const ctx = getAudioCtx();
   const osc = ctx.createOscillator();
@@ -1755,12 +1723,6 @@ function createWindow(type, title) {
 
   desktop.appendChild(win);
 
-  requestAnimationFrame(() => {
-    const desktop = win.parentElement;
-    win.dataset.centerLeft = (desktop.clientWidth - win.offsetWidth) / 2;
-    win.dataset.centerTop = (desktop.clientHeight - win.offsetHeight) / 2;
-  });
-
   const body = win.querySelector('.window-body');
   if (type === 'exercises') {
     buildExerciseGrid(body);
@@ -1851,14 +1813,6 @@ function createWindow(type, title) {
       win.style.left = '50%';
       win.style.transform = 'translate(-50%, -50%)';
     }
-  });
-
-  // Recycle Bin drag hook
-  const tb = win.querySelector('.window-titlebar');
-  tb.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('win-btn')) return;
-    if (win.classList.contains('maximized') || binRejecting) return;
-    initWindowDrag(e, win);
   });
 
   win.addEventListener('mousedown', () => bringToFront(win));
@@ -2220,9 +2174,6 @@ document.getElementById('analyze-design').addEventListener('click', (e) => {
   showAssistant();
 });
 
-let binDragState = null;
-let binRejecting = false;
-
 let binCharge = {
   state: 'idle',
   ghost: null,
@@ -2307,92 +2258,6 @@ function resetBinCharge() {
   binCharge.state = 'idle';
   binCharge.ghost = null;
   binCharge.origRect = null;
-}
-
-function initWindowDrag(e, win) {
-  const rect = win.getBoundingClientRect();
-  win.style.left = rect.left + 'px';
-  win.style.top = rect.top + 'px';
-  win.style.transform = 'none';
-  win.style.width = rect.width + 'px';
-  win.style.height = rect.height + 'px';
-  binDragState = { win, startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top, active: false };
-  document.addEventListener('mousemove', onWindowDrag);
-  document.addEventListener('mouseup', endWindowDrag);
-}
-
-function onWindowDrag(e) {
-  if (!binDragState || binRejecting) return;
-  const dx = e.clientX - binDragState.startX;
-  const dy = e.clientY - binDragState.startY;
-  if (!binDragState.active && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-    binDragState.active = true;
-    binDragState.win.classList.add('dragging');
-  }
-  if (!binDragState.active) return;
-  binDragState.win.style.left = (binDragState.origLeft + dx) + 'px';
-  binDragState.win.style.top = (binDragState.origTop + dy) + 'px';
-  checkBinReject(binDragState.win);
-}
-
-function endWindowDrag() {
-  const win = binDragState?.win;
-  const wasActive = binDragState?.active;
-  if (win) win.classList.remove('dragging');
-  binDragState = null;
-  document.removeEventListener('mousemove', onWindowDrag);
-  document.removeEventListener('mouseup', endWindowDrag);
-  if (win && wasActive && !binRejecting && win.dataset.centerLeft) {
-    win.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
-    win.style.left = win.dataset.centerLeft + 'px';
-    win.style.top = win.dataset.centerTop + 'px';
-    win.addEventListener('transitionend', function clearSnap() {
-      win.removeEventListener('transitionend', clearSnap);
-      win.style.transition = '';
-    });
-  }
-}
-
-function checkBinReject(win) {
-  const winRect = win.getBoundingClientRect();
-  const binRect = document.getElementById('desktop-bin').getBoundingClientRect();
-  const binCx = binRect.left + binRect.width / 2;
-  const binCy = binRect.top + binRect.height / 2;
-  const closestX = Math.max(winRect.left, Math.min(binCx, winRect.right));
-  const closestY = Math.max(winRect.top, Math.min(binCy, winRect.bottom));
-  if (Math.hypot(binCx - closestX, binCy - closestY) <= 40) rejectBinDrop(win);
-}
-
-function rejectBinDrop(win) {
-  binRejecting = true;
-  endWindowDrag();
-  win.classList.remove('dragging');
-  playSpit();
-  document.getElementById('desktop-bin').classList.add('angry');
-  const winRect = win.getBoundingClientRect();
-  const binRect = document.getElementById('desktop-bin').getBoundingClientRect();
-  const binCx = binRect.left + binRect.width / 2;
-  const binCy = binRect.top + binRect.height / 2;
-  const dx = (winRect.left + winRect.width / 2) - binCx;
-  const dy = (winRect.top + winRect.height / 2) - binCy;
-  const len = Math.hypot(dx, dy) || 1;
-  const dist = 250 + Math.random() * 150;
-  const flyX = winRect.left + (dx / len) * dist;
-  const flyY = winRect.top + (dy / len) * dist;
-  win.style.transition = 'left 0.4s cubic-bezier(0.25,0.46,0.45,0.94), top 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
-  win.style.left = flyX + 'px';
-  win.style.top = flyY + 'px';
-  setTimeout(() => {
-    win.style.transition = '';
-    binRejecting = false;
-  }, 500);
-  const bubble = document.getElementById('bin-bubble');
-  bubble.textContent = "Not today.";
-  bubble.classList.add('show');
-  setTimeout(() => {
-    bubble.classList.remove('show');
-    document.getElementById('desktop-bin').classList.remove('angry');
-  }, 2000);
 }
 
 // Ghost drag-and-drop for sidebar items + taskbar tabs
