@@ -1756,9 +1756,9 @@ function createWindow(type, title) {
   desktop.appendChild(win);
 
   requestAnimationFrame(() => {
-    const rect = win.getBoundingClientRect();
-    win.dataset.defaultLeft = rect.left;
-    win.dataset.defaultTop = rect.top;
+    const desktop = win.parentElement;
+    win.dataset.centerLeft = (desktop.clientWidth - win.offsetWidth) / 2;
+    win.dataset.centerTop = (desktop.clientHeight - win.offsetHeight) / 2;
   });
 
   const body = win.querySelector('.window-body');
@@ -2342,10 +2342,10 @@ function endWindowDrag() {
   binDragState = null;
   document.removeEventListener('mousemove', onWindowDrag);
   document.removeEventListener('mouseup', endWindowDrag);
-  if (win && wasActive && !binRejecting && win.dataset.defaultLeft) {
+  if (win && wasActive && !binRejecting && win.dataset.centerLeft) {
     win.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
-    win.style.left = win.dataset.defaultLeft + 'px';
-    win.style.top = win.dataset.defaultTop + 'px';
+    win.style.left = win.dataset.centerLeft + 'px';
+    win.style.top = win.dataset.centerTop + 'px';
     win.addEventListener('transitionend', function clearSnap() {
       win.removeEventListener('transitionend', clearSnap);
       win.style.transition = '';
