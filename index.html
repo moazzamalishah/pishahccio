@@ -324,39 +324,6 @@ html, body {
   color: #ff6b6b;
 }
 
-/* Minimize animation */
-@keyframes minimizeToTaskbar {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-42vw, 65vh) scale(0.15);
-    opacity: 0;
-  }
-}
-
-.window.minimizing {
-  animation: minimizeToTaskbar 0.3s ease-in forwards;
-  pointer-events: none;
-}
-
-/* Restore animation */
-@keyframes restoreFromTaskbar {
-  0% {
-    transform: translate(-42vw, 65vh) scale(0.15);
-    opacity: 0;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-}
-
-.window.restoring {
-  animation: restoreFromTaskbar 0.3s ease-out forwards;
-}
-
 /* Hourglass overlay */
 #hourglass-overlay {
   position: fixed;
@@ -1837,20 +1804,36 @@ function minimizeWindow(type) {
   if (!entry || entry.state !== 'open') return;
 
   const win = entry.domElement;
-
-  win.classList.add('minimizing');
   if (winState.activeWindow === type) winState.activeWindow = null;
+
+  const rect = win.getBoundingClientRect();
+  entry.savedRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+
+  win.style.left = rect.left + 'px';
+  win.style.top = rect.top + 'px';
+  win.style.transform = 'none';
+  win.style.width = rect.width + 'px';
+  win.style.height = rect.height + 'px';
+
+  void win.offsetWidth;
+
+  const targetX = 10;
+  const targetY = window.innerHeight - 20;
+  const dx = targetX - rect.left;
+  const dy = targetY - rect.top;
+
+  win.style.transition = 'transform 0.25s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.2s ease-in';
+  win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
+  win.style.opacity = '0';
 
   setTimeout(() => {
     win.style.display = 'none';
-    win.classList.remove('minimizing');
     entry.state = 'minimized';
 
     const tab = document.createElement('div');
     tab.className = 'taskbar-tab';
     tab.innerHTML = `<span>${entry.title}</span><span class="tab-close">&#x2715;</span>`;
 
-    // Ghost drag guard (registered before click handler)
     tab.addEventListener('click', function guard(e) {
       if (window._ghostWasDragged) { e.stopImmediatePropagation(); window._ghostWasDragged = false; }
     });
@@ -1880,7 +1863,7 @@ function minimizeWindow(type) {
 
     document.getElementById('taskbar-tabs').appendChild(tab);
     entry.tabElement = tab;
-  }, 300);
+  }, 250);
 }
 
 function restoreWindow(type) {
@@ -1899,14 +1882,43 @@ function restoreWindow(type) {
   const win = entry.domElement;
   win.style.display = '';
   bringToFront(win);
-  win.classList.add('restoring');
 
-  setTimeout(() => {
-    win.classList.remove('restoring');
+  if (entry.savedRect) {
+    const targetX = 10;
+    const targetY = window.innerHeight - 20;
+    const dx = targetX - entry.savedRect.left;
+    const dy = targetY - entry.savedRect.top;
+
+    win.style.left = entry.savedRect.left + 'px';
+    win.style.top = entry.savedRect.top + 'px';
+    win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
+    win.style.opacity = '0';
+    win.style.width = entry.savedRect.width + 'px';
+    win.style.height = entry.savedRect.height + 'px';
+
+    void win.offsetWidth;
+
+    win.style.transition = 'transform 0.25s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.2s ease-out';
+    win.style.transform = 'none';
+    win.style.opacity = '1';
+
+    setTimeout(() => {
+      win.style.transition = '';
+      win.style.left = '';
+      win.style.top = '';
+      win.style.width = '';
+      win.style.height = '';
+      win.style.transform = '';
+      win.style.opacity = '';
+      entry.state = 'open';
+      winState.activeWindow = type;
+      playChime();
+    }, 300);
+  } else {
     entry.state = 'open';
     winState.activeWindow = type;
     playChime();
-  }, 300);
+  }
 }
 
 const EXERCISES = [
