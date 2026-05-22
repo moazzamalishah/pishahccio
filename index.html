@@ -1202,6 +1202,32 @@ html, body {
   z-index: 110;
 }
 
+@keyframes bin-charge {
+  0%, 100% { background: #7a4e3a; border-color: #5c3828; box-shadow: none; }
+  10% { background: #ff0000; border-color: #ff6600; box-shadow: 0 0 12px #ff0000; }
+  20% { background: #00ff00; border-color: #00aa00; box-shadow: 0 0 12px #00ff00; }
+  30% { background: #ff00ff; border-color: #ffff00; box-shadow: 0 0 12px #ff00ff; }
+  40% { background: #00ffff; border-color: #0088ff; box-shadow: 0 0 12px #00ffff; }
+  50% { background: #ff0000; border-color: #ff6600; box-shadow: 0 0 12px #ff0000; }
+  60% { background: #ffaa00; border-color: #ffff00; box-shadow: 0 0 12px #ffaa00; }
+  70% { background: #00ff00; border-color: #00aa00; box-shadow: 0 0 12px #00ff00; }
+  80% { background: #ff00ff; border-color: #ffff00; box-shadow: 0 0 12px #ff00ff; }
+  90% { background: #00ffff; border-color: #0088ff; box-shadow: 0 0 12px #00ffff; }
+}
+
+.bin-charging .bin-body {
+  animation: bin-charge 0.5s steps(1) infinite;
+}
+
+.bin-charging .bin-lid {
+  animation: bin-charge 0.5s steps(1) infinite;
+}
+
+.bin-charging .bin-label {
+  color: #ff6600;
+  animation: hgBlink 0.15s step-end infinite;
+}
+
 .window.dragging {
   cursor: grabbing !important;
 }
