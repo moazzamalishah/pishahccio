@@ -1240,44 +1240,6 @@ html, body {
   transition: none !important;
 }
 
-/* Floating desktop icon (permanent) */
-.floating-icon {
-  position: fixed;
-  z-index: 50;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  background: transparent;
-  color: #d4c5a9;
-  font-family: inherit;
-  font-size: 11px;
-  text-align: center;
-  user-select: none;
-  min-width: 60px;
-  text-shadow: 1px 1px 0 #000;
-}
-
-.floating-icon .ficon {
-  font-size: 24px;
-  line-height: 1;
-}
-
-.floating-icon .flabel {
-  font-size: 10px;
-  max-width: 70px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.floating-icon:hover {
-  background: rgba(255,255,255,0.08);
-  border-radius: 3px;
-}
-
 /* Back button */
 .back-btn {
   display: inline-flex;
@@ -2351,7 +2313,6 @@ function onGhostMove(e) {
   ghostDragState.ghost.style.left = (ghostDragState.oX + dx) + 'px';
   ghostDragState.ghost.style.top = (ghostDragState.oY + dy) + 'px';
   if (checkGhostReject(ghostDragState.ghost)) {
-    const cfg = ghostDragState.config;
     ghostDragState.ghost.remove();
     document.removeEventListener('mousemove', onGhostMove);
     document.removeEventListener('mouseup', endGhostDrag);
