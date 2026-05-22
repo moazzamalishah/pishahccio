@@ -2217,6 +2217,92 @@ document.getElementById('analyze-design').addEventListener('click', (e) => {
 let binDragState = null;
 let binRejecting = false;
 
+let binCharge = {
+  state: 'idle',
+  ghost: null,
+  origRect: null,
+  timer: null
+};
+
+function startBinCharge(ghost, origRect) {
+  if (binCharge.state !== 'idle') {
+    ghost.remove();
+    return;
+  }
+  binCharge.state = 'charging';
+  binCharge.ghost = ghost;
+  binCharge.origRect = origRect;
+
+  const binRect = document.getElementById('desktop-bin').getBoundingClientRect();
+  const binCx = binRect.left + binRect.width / 2;
+  const binCy = binRect.top + binRect.height / 2;
+  const gRect = ghost.getBoundingClientRect();
+  ghost.style.transition = 'left 0.15s ease-in, top 0.15s ease-in, width 0.15s ease-in, height 0.15s ease-in, opacity 0.15s ease-in';
+  ghost.style.left = (binCx - gRect.width / 2) + 'px';
+  ghost.style.top = (binCy - gRect.height / 2) + 'px';
+  ghost.style.width = '20px';
+  ghost.style.height = '20px';
+  ghost.style.opacity = '0.3';
+  ghost.style.pointerEvents = 'none';
+
+  document.getElementById('desktop-bin').classList.add('bin-charging');
+
+  binCharge.timer = setTimeout(() => ejectBinCharge(), 2000);
+}
+
+function ejectBinCharge() {
+  if (binCharge.state !== 'charging') return;
+  binCharge.state = 'ejecting';
+
+  document.getElementById('desktop-bin').classList.remove('bin-charging');
+
+  playBoing();
+
+  const ghost = binCharge.ghost;
+  const binRect = document.getElementById('desktop-bin').getBoundingClientRect();
+  const binCx = binRect.left + binRect.width / 2;
+  const binCy = binRect.top + binRect.height / 2;
+  const gRect = ghost.getBoundingClientRect();
+  ghost.style.transition = 'none';
+  ghost.style.left = (binCx - gRect.width / 2) + 'px';
+  ghost.style.top = (binCy - gRect.height / 2) + 'px';
+  ghost.style.width = '20px';
+  ghost.style.height = '20px';
+  ghost.style.opacity = '1';
+
+  void ghost.offsetWidth;
+
+  ghost.style.transition = 'left 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), width 0.2s ease, height 0.2s ease';
+  ghost.style.left = binCharge.origRect.left + 'px';
+  ghost.style.top = binCharge.origRect.top + 'px';
+  ghost.style.width = binCharge.origRect.width + 'px';
+  ghost.style.height = binCharge.origRect.height + 'px';
+
+  ghost.addEventListener('transitionend', function cleanup() {
+    ghost.removeEventListener('transitionend', cleanup);
+    ghost.remove();
+    resetBinCharge();
+  });
+
+  setTimeout(() => {
+    if (binCharge.state === 'ejecting') {
+      ghost.remove();
+      resetBinCharge();
+    }
+  }, 500);
+}
+
+function resetBinCharge() {
+  document.getElementById('desktop-bin').classList.remove('bin-charging');
+  if (binCharge.timer) {
+    clearTimeout(binCharge.timer);
+    binCharge.timer = null;
+  }
+  binCharge.state = 'idle';
+  binCharge.ghost = null;
+  binCharge.origRect = null;
+}
+
 function initWindowDrag(e, win) {
   const rect = win.getBoundingClientRect();
   win.style.left = rect.left + 'px';
