@@ -403,7 +403,7 @@ html, body {
 
 /* Popup Window */
 .window {
-  position: fixed;
+  position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1801,9 +1801,11 @@ function minimizeWindow(type) {
   if (winState.activeWindow === type) winState.activeWindow = null;
 
   const rect = win.getBoundingClientRect();
+  const desktop = win.parentElement;
+  const desktopRect = desktop.getBoundingClientRect();
 
-  win.style.left = rect.left + 'px';
-  win.style.top = rect.top + 'px';
+  win.style.left = (rect.left - desktopRect.left) + 'px';
+  win.style.top = (rect.top - desktopRect.top) + 'px';
   win.style.transform = 'none';
   win.style.width = rect.width + 'px';
   win.style.height = rect.height + 'px';
@@ -1873,6 +1875,7 @@ function restoreWindow(type) {
   }
 
   const win = entry.domElement;
+  const desktop = win.parentElement;
   bringToFront(win);
 
   win.style.left = '';
@@ -1889,8 +1892,8 @@ function restoreWindow(type) {
 
   const winWidth = win.offsetWidth;
   const winHeight = win.offsetHeight;
-  const centerLeft = (window.innerWidth - winWidth) / 2;
-  const centerTop = (window.innerHeight - winHeight) / 2;
+  const centerLeft = (desktop.clientWidth - winWidth) / 2;
+  const centerTop = (desktop.clientHeight - winHeight) / 2;
 
   win.style.left = centerLeft + 'px';
   win.style.top = centerTop + 'px';
@@ -1899,10 +1902,11 @@ function restoreWindow(type) {
   win.style.transform = 'none';
   void win.offsetWidth;
 
+  const pinnedRect = win.getBoundingClientRect();
   const targetX = 10;
   const targetY = window.innerHeight - 20;
-  const dx = targetX - centerLeft;
-  const dy = targetY - centerTop;
+  const dx = targetX - pinnedRect.left;
+  const dy = targetY - pinnedRect.top;
   win.style.transform = `translate(${dx}px, ${dy}px) scale(0.08)`;
   void win.offsetWidth;
 
